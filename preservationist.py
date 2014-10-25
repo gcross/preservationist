@@ -11,7 +11,6 @@
 
 from datetime import datetime, timedelta
 import shutil
-import time
 import os
 import os.path
 import subprocess
@@ -21,7 +20,7 @@ import sys
 ################################## CONSTANTS ###################################
 ################################################################################
 
-HOURLY_DELTA = timedelta(hours=-1)
+HOURLY_DELTA = timedelta(hours=1)
 DAILY_DELTA = 24 * HOURLY_DELTA
 WEEKLY_DELTA = 7 * DAILY_DELTA
 MONTHLY_DELTA = 4 * WEEKLY_DELTA
@@ -49,19 +48,19 @@ def binSnapshots(bin_boundary_generator, snapshots):
     # First, we skip past all of the snapshots that say that they were taken in
     # the future as there is no good way to handle them since they shouldn't
     # even exist.
-    while i < len(snapshots) and snapshots[i] < now:
-        print('Snapshot {} is in the future'.format(datetime.strftime(TIME_FORMAT,snapshots[i])))
+    while i < len(snapshots) and snapshots[i] > now:
+        log('Snapshot {} is in the future'.format(datetime.strftime(snapshots[i],TIME_FORMAT)))
         i += 1 
     
     # Now we sort the snapshots into bins.
     bins = []
     while i < len(snapshots):
         try:
-            right_boundary = next(bin_boundary_generator)
+            right_boundary = now + next(bin_boundary_generator)
         except StopIteration:
             break
         bin = []
-        while snapshots[i] < right_boundary:
+        while i < len(snapshots) and snapshots[i] > right_boundary:
             bin.append(snapshots[i])
             i += 1
         bins.append(bin)
@@ -83,7 +82,7 @@ def createBoundaryGenerator(number_to_keep, delta):
         maximum = 1000000 
     else:
         maximum = number_to_keep
-    for i in range(-1,maximum,-1):
+    for i in range(-1,-maximum,-1):
         yield i * delta
 
 def generateBinBoundaries(boundary_generators):
@@ -94,6 +93,7 @@ def generateBinBoundaries(boundary_generators):
        set is iterated over (where the ordering here is from the
        future to the past.
     '''
+    boundary_generators = list(boundary_generators)
     boundaries = []
     empty_generator_indices = []
     for i, boundary_generator in enumerate(boundary_generators):
@@ -105,7 +105,7 @@ def generateBinBoundaries(boundary_generators):
         del boundary_generators[i]
 
     while boundaries:
-        minimum_boundary = min(boundaries)
+        minimum_boundary = max(boundaries)
         yield minimum_boundary
         
         empty_generator_indices = []
@@ -123,9 +123,12 @@ def pruneSnapshots(snapshots,dry_run):
     '''Deletes all of the given snapshots.'''
     for snapshot in snapshots:
         snapshot_path = datetime.strftime(snapshot, TIME_FORMAT) 
-        print('Pruning snapshot {}...'.format(snapshot_path))
+        log('Pruning snapshot {}...'.format(snapshot_path))
         if not dry_run:
             shutil.rmtree(snapshot_path,True)
+
+def log(message,*args,**kwargs):
+    print(datetime.strftime(datetime.now(),'[%Y-%m-%d @ %H:%M:%S] ') + message,*args,**kwargs)
 
 ################################################################################
 ##################################### RUN ######################################
@@ -161,17 +164,22 @@ dry_run,
 
 ################################################################################
 ):
+    if dry_run:
+        log('This is just a dry run; no action will be taken.')
+ 
     # First, check to see if another protectionist process is already active.
     i_am_active = os.path.join(snapshot_path,'i_am_active')
-    if os.path.exists(i_am_active):
-        print('Another preservationist process is already running, so I will abort.')
-        print('(If this is not true, then delete i_am_active in the snapshots directory.)')
-        return
+    if not dry_run:
+        if os.path.exists(i_am_active):
+            log('Another preservationist process is already running, so I will abort.')
+            log('(If this is not true, then delete i_am_active in the snapshots directory.)')
+            return
 
     try:
         # Create a file that signifies that we are active in the snapshots
         # directory.
-        open(i_am_active,'a').close()
+        if not dry_run:
+            open(i_am_active,'a').close()
 
         # Construct the bin boundary generator, which tells us how to place the
         # snapshots into the bins desired by the user.
@@ -193,7 +201,7 @@ dry_run,
         snapshots = []
         for potential_snapshot in os.listdir(snapshot_path):
             try:
-                snapshots.append(time.strptime(potential_snapshot, TIME_FORMAT))
+                snapshots.append(datetime.strptime(potential_snapshot, TIME_FORMAT))
             except ValueError:
                 pass
         
@@ -225,21 +233,22 @@ dry_run,
             ['--exclude={}'.format(excluded_path) for excluded_path in exclude] +
             [os.path.join(source_path,''),os.path.join(current_directory,'')]
         )
-        print('Running {}...'.format(' '.join(run_rsync)))
+        log('Running {}...'.format(' '.join(run_rsync)))
         if not dry_run:
             process = subprocess.Popen(run_rsync,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
             for line in process.stdout:
-                print(line.decode('utf-8'),end='')
+                log(line.decode('utf-8'),end='')
             return_code = process.wait()
             if return_code != 0:
-                print("Failed to run rsync: return code {}".format(return_code))
+                log("Failed to run rsync: return code {}".format(return_code))
                 return
 
         # Rename the new snapshot
-        snapshot = datetime.strftime(datetime.now(),TIME_FORMAT)
-        print('Renaming {} to {}...'.format(current_directory,os.path.join(snapshot_path,snapshot)))
+        snapshot_path = os.path.join(snapshot_path,datetime.strftime(datetime.now(),TIME_FORMAT))
+        log('Renaming {} to {}...'.format(current_directory,snapshot_path))
         if not dry_run:
-            os.rename(current_directory,snapshot)
+            os.rename(current_directory,snapshot_path)
     finally:
-        if os.path.exists(i_am_active):
-            os.remove(i_am_active)
+        if not dry_run:
+            if os.path.exists(i_am_active):
+                os.remove(i_am_active)
