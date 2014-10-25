@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from preservationist import exponential, infinite, run
+from preservationist import run
 
 run(
 #################################### Paths #####################################
@@ -20,10 +20,10 @@ rsync_command = 'rsync',
 # and yearly snapshots as well.
 
 hourly = 24,
-daily = (7,exponential()),
-weekly = (4,exponential()),
+daily = 7,
+weekly = 4,
 monthly = 12,
-quarterly = infinite,
+quarterly = 'infinite',
 yearly = 0,
 
 #################################### Rsync #####################################

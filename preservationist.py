@@ -9,7 +9,6 @@
 ################################### IMPORTS ####################################
 ################################################################################
 
-from collections import abc, namedtuple
 from datetime import datetime, timedelta
 import shutil
 import time
@@ -17,19 +16,6 @@ import os
 import os.path
 import subprocess
 import sys
-
-################################################################################
-############################# CONFIGURATION CLASSES ############################
-################################################################################
-
-class _infinite:
-    pass
-infinite = _infinite()
-
-
-class exponential:
-    def __init__(self,base=2):
-        self.base = base
 
 ################################################################################
 ################################## CONSTANTS ###################################
@@ -91,18 +77,10 @@ def createBoundaryGenerator(number_to_keep, delta):
        that produces the boundaries of the bins ordered from the future to
        the past.
     '''
-    if isinstance(number_to_keep,abc.Container):
-        yield from generateBinBoundaries(createBoundaryGenerator(n, delta) for n in number_to_keep)
-    elif number_to_keep is infinite:
+    if number_to_keep == 'infinite':
         # There is no maximum integer so we just pick a value larger than any
         # user is going to want.
         maximum = 1000000 
-    elif isinstance(number_to_keep,exponential):
-        i = -1
-        while True:
-            print("exp yield",i*delta)
-            yield i * delta
-            i *= number_to_keep.base
     else:
         maximum = number_to_keep
     for i in range(-1,maximum,-1):
