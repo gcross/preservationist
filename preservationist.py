@@ -174,13 +174,15 @@ dry_run,
         if os.path.exists(i_am_active):
             log('Another preservationist process is already running, so I will abort.')
             log('(If this is not true, then delete i_am_active in the snapshots directory.)')
+            log('(If you want to kill the running process, its id is in i_am_active.)')
             return
 
     try:
         # Create a file that signifies that we are active in the snapshots
         # directory.
         if not dry_run:
-            open(i_am_active,'a').close()
+            with open(i_am_active,'w') as f:
+                print(os.getpid(),file=f)
 
         # Construct the bin boundary generator, which tells us how to place the
         # snapshots into the bins desired by the user.
