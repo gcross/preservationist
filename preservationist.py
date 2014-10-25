@@ -129,6 +129,7 @@ def pruneSnapshots(snapshots,dry_run):
 
 def log(message,*args,**kwargs):
     print(datetime.strftime(datetime.now(),'[%Y-%m-%d @ %H:%M:%S] ') + message,*args,**kwargs)
+    sys.stdout.flush()
 
 ################################################################################
 ##################################### RUN ######################################
