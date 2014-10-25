@@ -6,7 +6,7 @@ run(
 #################################### Paths #####################################
 
 source_path = '/',
-snapshot_path = '/backups/internal/snapshots',
+snapshot_path = '/backups/snapshots',
 rsync_command = 'rsync',
 
 ############################## Intervals to keep ###############################
@@ -28,7 +28,7 @@ yearly = 0,
 
 #################################### Rsync #####################################
 
-rsync_short_options = '-aAXv',
+rsync_short_options = '-aAX',
 rsync_long_options = [
     '--delete',
     '--numeric-ids',
@@ -49,13 +49,11 @@ exclude = [
     '/media/*',
     '/lost+found/*',
     '/home/*/.local/share/Trash/*',
-    '/fasthome/*/.local/share/Trash/*',
-    '/home/gcross/JungleDisk',
 ],
 
 ################################ Miscellaneous #################################
 
-dry_run = False,
+dry_run = True,
 
 ################################################################################
 )
