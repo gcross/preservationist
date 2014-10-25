@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from preservationist import run
+from preservationist import exponential, infinite, run
 
 run(
 #################################### Paths #####################################
@@ -11,19 +11,19 @@ rsync_command = 'rsync',
 
 ############################## Intervals to keep ###############################
 
-# If you use the value 'infinite', then there will be an infinite number of that
-# interval kept; e.g. setting monthly to 'infinite' means that a snapshot will
-# be kept for every month as long as the hard drive doesn't fill up. Note that
-# if you set a particular interval to 'infinite' then the values of the
-# intervals below it won't matter (as they are an integer multiple of it), so
-# i.e. if you set monthly to 'infinite' then there will also be infinitely many
-# kept quarterly and yearly snapshots as well.
+# If you use the value infinite, then there will be an infinite number of that
+# interval kept; e.g. setting monthly to infinite means that a snapshot will be
+# kept for every month as long as the hard drive doesn't fill up. Note that if
+# you set a particular interval to infinite then the values of the intervals
+# below it won't matter (as they are an integer multiple of it), so i.e. if you
+# set monthly to infinite then there will also be infinitely many kept quarterly
+# and yearly snapshots as well.
 
-hourly = 0,
-daily = 7,
-weekly = 4,
-monthly = 'infinite',
-quarterly = 0,
+hourly = 24,
+daily = (7,exponential()),
+weekly = (4,exponential()),
+monthly = 12,
+quarterly = infinite,
 yearly = 0,
 
 #################################### Rsync #####################################
