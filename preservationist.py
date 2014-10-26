@@ -210,8 +210,7 @@ dry_run,
         
         # Sort the snapshots from future to past (i.e., going backwards in
         # time).
-        snapshots.sort()
-        snapshots.reverse()
+        snapshots.sort(reverse=True)
         
         # Now we sort the snapshots into bins
         bins, far_past_snapshots = binSnapshots(bin_boundary_generator, snapshots)
