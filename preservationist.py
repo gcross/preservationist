@@ -9,6 +9,7 @@
 ################################### IMPORTS ####################################
 ################################################################################
 
+import atexit
 from datetime import datetime, timedelta
 import shutil
 import os
@@ -179,88 +180,87 @@ dry_run,
             log('(If you want to kill the running process, its id is in i_am_active.)')
             return
 
-    try:
-        # Create a file that signifies that we are active in the snapshots
-        # directory.
-        if not dry_run:
-            with open(i_am_active,'w') as f:
-                print(os.getpid(),file=f)
+    # Create a sentinel file that signifies that we are active in the snapshots
+    # directory.
+    if not dry_run:
+        with open(i_am_active,'w') as f:
+            print(os.getpid(),file=f)
 
-        # Construct the bin boundary generator, which tells us how to place the
-        # snapshots into the bins desired by the user.
-        bin_boundary_generator = generateBinBoundaries(
-            createBoundaryGenerator(number_to_keep, delta)
-            for number_to_keep, delta in [
-                (hourly, HOURLY_DELTA),
-                (daily, DAILY_DELTA),
-                (weekly, WEEKLY_DELTA),
-                (monthly, MONTHLY_DELTA),
-                (quarterly, QUARTERLY_DELTA),
-                (yearly, YEARLY_DELTA),
-            ]
-        )
+    # Ensure that the sentinel file is deleted when we quit.
+    def delete_i_am_active():
+        if os.path.exists(i_am_active):
+            os.remove(i_am_active)
+    atexit.register(delete_i_am_active)
 
-        # Go through the snapshots directory and find all of the snapshots; we
-        # interpret every directory whose date follows the time format as being
-        # a snapshot and ignore everything else.
-        snapshots = []
-        for potential_snapshot in os.listdir(snapshot_path):
-            try:
-                snapshots.append(datetime.strptime(potential_snapshot, DATETIME_FORMAT))
-            except ValueError:
-                pass
-        
-        # Sort the snapshots from future to past (i.e., going backwards in
-        # time).
-        snapshots.sort(reverse=True)
-        
-        # Now we assign the snapshots to bins.
-        bins, far_past_snapshots = binSnapshots(bin_boundary_generator, snapshots)
-        
-        # In each bin, we prune all but the oldest snapshot. (Note that this
-        # means that there will always be at least one snapshot kept.)
-        for bin in bins:
-            pruneSnapshots(bin[:-1],dry_run)
-        
-        # We also prune the snapshots that were too old to be placed in any bin.
-        pruneSnapshots(far_past_snapshots,dry_run)
+    # Construct the bin boundary generator, which tells us how to place the
+    # snapshots into the bins desired by the user.
+    bin_boundary_generator = generateBinBoundaries(
+        createBoundaryGenerator(number_to_keep, delta)
+        for number_to_keep, delta in [
+            (hourly, HOURLY_DELTA),
+            (daily, DAILY_DELTA),
+            (weekly, WEEKLY_DELTA),
+            (monthly, MONTHLY_DELTA),
+            (quarterly, QUARTERLY_DELTA),
+            (yearly, YEARLY_DELTA),
+        ]
+    )
 
-        # Create a directory for the snapshot that we will be taking
-        current_directory = os.path.join(snapshot_path,'current')
-        if not dry_run:
-            os.makedirs(current_directory, exist_ok=True)
-        
-        # Run rsync
-        run_rsync = (
-            [rsync_command,rsync_short_options] +
-            rsync_long_options +
-            ['--include={}'.format(included_path) for included_path in include] +
-            ['--exclude={}'.format(excluded_path) for excluded_path in exclude] +
-            [os.path.join(source_path,''),os.path.join(current_directory,''),
-             '--link-dest={}'.format(os.path.join(snapshot_path,datetime.strftime(snapshots[0],DATETIME_FORMAT)))]
-        )
-        log('Running {}...'.format(' '.join(run_rsync)))
-        if not dry_run:
-            process = subprocess.Popen(run_rsync,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
-            # Annoyingly, the way that rsync buffers its output means that we
-            # can't just use PIPE to do this for us, though maybe it is for the
-            # best as it lets the rsync output lines be timestamped.
-            for line in process.stdout:
-                log(line.decode('utf-8'),end='')
-            return_code = process.wait()
-            # If rsync fails, then we assume that current is broken and so we
-            # don't turn it into a snapshot.
-            if return_code != 0:
-                log("Failed to run rsync: return code {}".format(return_code))
-                return
+    # Go through the snapshots directory and find all of the snapshots; we
+    # interpret every directory whose date follows the time format as being a
+    # snapshot and ignore everything else.
+    snapshots = []
+    for potential_snapshot in os.listdir(snapshot_path):
+        try:
+            snapshots.append(datetime.strptime(potential_snapshot, DATETIME_FORMAT))
+        except ValueError:
+            pass
 
-        # Rename the new snapshot
-        snapshot_path = os.path.join(snapshot_path,datetime.strftime(datetime.now(),DATETIME_FORMAT))
-        log('Renaming {} to {}...'.format(current_directory,snapshot_path))
-        if not dry_run:
-            os.rename(current_directory,snapshot_path)
-    finally:
-        if not dry_run:
-            # We are done, so delete the file signaling we are active.
-            if os.path.exists(i_am_active):
-                os.remove(i_am_active)
+    # Sort the snapshots from future to past (i.e., going backwards in time).
+    snapshots.sort(reverse=True)
+
+    # Now we assign the snapshots to bins.
+    bins, far_past_snapshots = binSnapshots(bin_boundary_generator, snapshots)
+
+    # In each bin, we prune all but the oldest snapshot. (Note that this means
+    # that there will always be at least one snapshot kept.)
+    for bin in bins:
+        pruneSnapshots(bin[:-1],dry_run)
+
+    # We also prune the snapshots that were too old to be placed in any bin.
+    pruneSnapshots(far_past_snapshots,dry_run)
+
+    # Create a directory for the snapshot that we will be taking
+    current_directory = os.path.join(snapshot_path,'current')
+    if not dry_run:
+        os.makedirs(current_directory, exist_ok=True)
+
+    # Run rsync
+    run_rsync = (
+        [rsync_command,rsync_short_options] +
+        rsync_long_options +
+        ['--include={}'.format(included_path) for included_path in include] +
+        ['--exclude={}'.format(excluded_path) for excluded_path in exclude] +
+        [os.path.join(source_path,''),os.path.join(current_directory,''),
+         '--link-dest={}'.format(os.path.join(snapshot_path,datetime.strftime(snapshots[0],DATETIME_FORMAT)))]
+    )
+    log('Running {}...'.format(' '.join(run_rsync)))
+    if not dry_run:
+        process = subprocess.Popen(run_rsync,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+        # Annoyingly, the way that rsync buffers its output means that we can't
+        # just use PIPE to do this for us, though maybe it is for the best as it
+        # lets the rsync output lines be timestamped.
+        for line in process.stdout:
+            log(line.decode('utf-8'),end='')
+        return_code = process.wait()
+        # If rsync fails, then we assume that current is broken and so we don't
+        # turn it into a snapshot.
+        if return_code != 0:
+            log("Failed to run rsync: return code {}".format(return_code))
+            return
+
+    # Rename the new snapshot
+    snapshot_path = os.path.join(snapshot_path,datetime.strftime(datetime.now(),DATETIME_FORMAT))
+    log('Renaming {} to {}...'.format(current_directory,snapshot_path))
+    if not dry_run:
+        os.rename(current_directory,snapshot_path)
