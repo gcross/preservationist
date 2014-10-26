@@ -35,12 +35,13 @@ DATETIME_FORMAT = '%Y-%m-%d @ %H:%M'
 
 def binSnapshots(bin_boundary_generator, snapshots):
     '''Given a generator of the bin boundaries (going backwards in time), and a
-       list of snapshots, returns a list with the snapshots in each bin and a
+       list of snapshots, returns a list with each element being a list that
+       contains all of the snapshots that belong in the corresponding bin, and a
        list with the snapshots that were too far in the past to fit into any
        bin.
        
-       NOTE: both bin_boundary_generator and snapshots must be sorted from the
-            future to the past
+       NOTE: Both bin_boundary_generator and snapshots must already be sorted
+             from the future to the past.
     '''
     now = datetime.now()
     i = 0
@@ -86,12 +87,13 @@ def createBoundaryGenerator(number_to_keep, delta):
         yield i * delta
 
 def generateBinBoundaries(boundary_generators):
-    '''Returns a boundary generator made by merging all of the input
-       boundary generators. You can model how this function works in
-       your head by imagining that all of the input generators are
-       turned into sets, unioned together, and then the resulting
-       set is iterated over (where the ordering here is from the
-       future to the past.
+    '''Returns a boundary generator made by merging all of the input boundary
+       generators. You can model how this function works in your head by
+       imagining that all of the input generators are turned into sets, unioned
+       together, and then the resulting set is iterated over (where the ordering
+       here is from the future to the past). The only reason why this function
+       does not work in exactly that way is that generators are allowed to be
+       infinite and so require special handling.
     '''
     boundary_generators = list(boundary_generators)
     boundaries = []
@@ -212,10 +214,11 @@ dry_run,
         # time).
         snapshots.sort(reverse=True)
         
-        # Now we sort the snapshots into bins
+        # Now we assign the snapshots to bins.
         bins, far_past_snapshots = binSnapshots(bin_boundary_generator, snapshots)
         
-        # In each bin, we prune all but the oldest snapshot.
+        # In each bin, we prune all but the oldest snapshot. (Note that this
+        # means that there will always be at least one snapshot kept.)
         for bin in bins:
             pruneSnapshots(bin[:-1],dry_run)
         
@@ -239,9 +242,14 @@ dry_run,
         log('Running {}...'.format(' '.join(run_rsync)))
         if not dry_run:
             process = subprocess.Popen(run_rsync,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+            # Annoyingly, the way that rsync buffers its output means that we
+            # can't just use PIPE to do this for us, though maybe it is for the
+            # best as it lets the rsync output lines be timestamped.
             for line in process.stdout:
                 log(line.decode('utf-8'),end='')
             return_code = process.wait()
+            # If rsync fails, then we assume that current is broken and so we
+            # don't turn it into a snapshot.
             if return_code != 0:
                 log("Failed to run rsync: return code {}".format(return_code))
                 return
@@ -253,5 +261,6 @@ dry_run,
             os.rename(current_directory,snapshot_path)
     finally:
         if not dry_run:
+            # We are done, so delete the file signaling we are active.
             if os.path.exists(i_am_active):
                 os.remove(i_am_active)
