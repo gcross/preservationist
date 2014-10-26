@@ -27,7 +27,7 @@ MONTHLY_DELTA = 4 * WEEKLY_DELTA
 QUARTERLY_DELTA = 3 * MONTHLY_DELTA
 YEARLY_DELTA = 4 * QUARTERLY_DELTA
 
-TIME_FORMAT = '%Y-%m-%d @ %H:%M'
+DATETIME_FORMAT = '%Y-%m-%d @ %H:%M'
 
 ################################################################################
 ################################## FUNCTIONS ###################################
@@ -49,7 +49,7 @@ def binSnapshots(bin_boundary_generator, snapshots):
     # the future as there is no good way to handle them since they shouldn't
     # even exist.
     while i < len(snapshots) and snapshots[i] > now:
-        log('Snapshot {} is in the future'.format(datetime.strftime(snapshots[i],TIME_FORMAT)))
+        log('Snapshot {} is in the future'.format(datetime.strftime(snapshots[i],DATETIME_FORMAT)))
         i += 1 
     
     # Now we sort the snapshots into bins.
@@ -122,7 +122,7 @@ def generateBinBoundaries(boundary_generators):
 def pruneSnapshots(snapshots,dry_run):
     '''Deletes all of the given snapshots.'''
     for snapshot in snapshots:
-        snapshot_path = datetime.strftime(snapshot, TIME_FORMAT) 
+        snapshot_path = datetime.strftime(snapshot, DATETIME_FORMAT) 
         log('Pruning snapshot {}...'.format(snapshot_path))
         if not dry_run:
             shutil.rmtree(snapshot_path,True)
@@ -204,7 +204,7 @@ dry_run,
         snapshots = []
         for potential_snapshot in os.listdir(snapshot_path):
             try:
-                snapshots.append(datetime.strptime(potential_snapshot, TIME_FORMAT))
+                snapshots.append(datetime.strptime(potential_snapshot, DATETIME_FORMAT))
             except ValueError:
                 pass
         
@@ -247,7 +247,7 @@ dry_run,
                 return
 
         # Rename the new snapshot
-        snapshot_path = os.path.join(snapshot_path,datetime.strftime(datetime.now(),TIME_FORMAT))
+        snapshot_path = os.path.join(snapshot_path,datetime.strftime(datetime.now(),DATETIME_FORMAT))
         log('Renaming {} to {}...'.format(current_directory,snapshot_path))
         if not dry_run:
             os.rename(current_directory,snapshot_path)
