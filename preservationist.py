@@ -10,7 +10,7 @@
 ################################################################################
 
 import atexit
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import shutil
 import os
 import os.path
@@ -21,114 +21,11 @@ import sys
 ################################## CONSTANTS ###################################
 ################################################################################
 
-HOURLY_DELTA = timedelta(hours=1)
-DAILY_DELTA = 24 * HOURLY_DELTA
-WEEKLY_DELTA = 7 * DAILY_DELTA
-MONTHLY_DELTA = 4 * WEEKLY_DELTA
-QUARTERLY_DELTA = 3 * MONTHLY_DELTA
-YEARLY_DELTA = 4 * QUARTERLY_DELTA
-
 DATETIME_FORMAT = '%Y-%m-%d @ %H:%M'
 
 ################################################################################
 ################################## FUNCTIONS ###################################
 ################################################################################
-
-def binSnapshots(bin_boundary_generator, snapshots):
-    '''Given a generator of the bin boundaries (going backwards in time), and a
-       list of snapshots, returns a list with each element being a list that
-       contains all of the snapshots that belong in the corresponding bin, and a
-       list with the snapshots that were too far in the past to fit into any
-       bin.
-       
-       NOTE: Both bin_boundary_generator and snapshots must already be sorted
-             from the future to the past.
-    '''
-    now = datetime.now()
-    i = 0
-    
-    # First, we skip past all of the snapshots that say that they were taken in
-    # the future as there is no good way to handle them since they shouldn't
-    # even exist.
-    while i < len(snapshots) and snapshots[i] > now:
-        log('Snapshot {} is in the future'.format(datetime.strftime(snapshots[i],DATETIME_FORMAT)))
-        i += 1 
-    
-    # Now we sort the snapshots into bins.
-    bins = []
-    while i < len(snapshots):
-        try:
-            right_boundary = now + next(bin_boundary_generator)
-        except StopIteration:
-            break
-        bin = []
-        while i < len(snapshots) and snapshots[i] > right_boundary:
-            bin.append(snapshots[i])
-            i += 1
-        bins.append(bin)
-
-    # Return the binned snapshots, as well as any that taken past the last
-    # bin boundary (i.e. those so far in the past that we don't want to keep
-    # them anymore).
-    return bins, snapshots[i:]
-        
-
-def createBoundaryGenerator(number_to_keep, delta):
-    '''Given the number of bins to keep and their size, returns a generator
-       that produces the boundaries of the bins ordered from the future to
-       the past.
-    '''
-    if number_to_keep == 'infinite':
-        # There is no maximum integer so we just pick a value larger than any
-        # user is going to want.
-        maximum = 1000000 
-    else:
-        maximum = number_to_keep
-    for i in range(-1,-maximum,-1):
-        yield i * delta
-
-def generateBinBoundaries(boundary_generators):
-    '''Returns a boundary generator made by merging all of the input boundary
-       generators. You can model how this function works in your head by
-       imagining that all of the input generators are turned into sets, unioned
-       together, and then the resulting set is iterated over (where the ordering
-       here is from the future to the past). The only reason why this function
-       does not work in exactly that way is that generators are allowed to be
-       infinite and so require special handling.
-    '''
-    boundary_generators = list(boundary_generators)
-    boundaries = []
-    empty_generator_indices = []
-    for i, boundary_generator in enumerate(boundary_generators):
-        try:
-            boundaries.append(next(boundary_generator))
-        except StopIteration:
-            empty_generator_indices.append(i)
-    for i in empty_generator_indices[::-1]:
-        del boundary_generators[i]
-
-    while boundaries:
-        minimum_boundary = max(boundaries)
-        yield minimum_boundary
-        
-        empty_generator_indices = []
-        for i, boundary in enumerate(boundaries):
-            if boundary == minimum_boundary:
-                try:
-                    boundaries[i] = next(boundary_generators[i])
-                except StopIteration:
-                    empty_generator_indices.append(i)
-        for i in empty_generator_indices[::-1]:
-            del boundaries[i]
-            del boundary_generators[i]
-
-def pruneSnapshots(snapshots,dry_run):
-    '''Deletes all of the given snapshots.'''
-    for snapshot in snapshots:
-        snapshot_path = datetime.strftime(snapshot, DATETIME_FORMAT) 
-        log('Pruning snapshot {}...'.format(snapshot_path))
-        if not dry_run:
-            shutil.rmtree(snapshot_path,True)
 
 def log(message,*args,**kwargs):
     print(datetime.strftime(datetime.now(),'[%Y-%m-%d @ %H:%M:%S] ') + message,*args,**kwargs)
@@ -145,15 +42,6 @@ def run(
 source_path,
 snapshot_path,
 rsync_command,
-
-############################## Intervals to keep ###############################
-
-hourly,
-daily,
-weekly,
-monthly,
-quarterly,
-yearly,
 
 #################################### Rsync #####################################
 
@@ -192,20 +80,6 @@ dry_run,
             os.remove(i_am_active)
     atexit.register(delete_i_am_active)
 
-    # Construct the bin boundary generator, which tells us how to place the
-    # snapshots into the bins desired by the user.
-    bin_boundary_generator = generateBinBoundaries(
-        createBoundaryGenerator(number_to_keep, delta)
-        for number_to_keep, delta in [
-            (hourly, HOURLY_DELTA),
-            (daily, DAILY_DELTA),
-            (weekly, WEEKLY_DELTA),
-            (monthly, MONTHLY_DELTA),
-            (quarterly, QUARTERLY_DELTA),
-            (yearly, YEARLY_DELTA),
-        ]
-    )
-
     # Go through the snapshots directory and find all of the snapshots; we
     # interpret every directory whose date follows the time format as being a
     # snapshot and ignore everything else.
@@ -219,16 +93,42 @@ dry_run,
     # Sort the snapshots from future to past (i.e., going backwards in time).
     snapshots.sort(reverse=True)
 
-    # Now we assign the snapshots to bins.
-    bins, far_past_snapshots = binSnapshots(bin_boundary_generator, snapshots)
+    # Delete old snapshots
+    if snapshots:
+        snapshots_to_prune = []
 
-    # In each bin, we prune all but the oldest snapshot. (Note that this means
-    # that there will always be at least one snapshot kept.)
-    for bin in bins:
-        pruneSnapshots(bin[:-1],dry_run)
+        # Keep the last 24 hours of snapshots
+        one_day_ago = datetime.now() - timedelta(days=1)
+        i = 0
+        while i < len(snapshots) and snapshots[i] >= one_day_ago:
+            i += 1
+        j = i
 
-    # We also prune the snapshots that were too old to be placed in any bin.
-    pruneSnapshots(far_past_snapshots,dry_run)
+        # Helper function for selecting all of the snapshots for a given day/month
+        def selectToPrune(get_metric):
+            nonlocal i, snapshots_to_prune
+            this = get_metric(snapshots[i])
+            j = i+1
+            while j < len(snapshots) and get_metric(snapshots[j]) == this:
+                j += 1
+            snapshots_to_prune += snapshots[i:j-1]
+            i = j
+
+        # Keep daily snapshots for the last month
+        last_daily_to_keep = datetime.now().date() - timedelta(days=30)
+        while i < len(snapshots) and snapshots[i].date() >= last_daily_to_keep:
+            selectToPrune(lambda x: x.date())
+
+        # Keep monthly snapshots forever
+        while i < len(snapshots):
+            selectToPrune(lambda x: x.date().month)
+
+        # Delete the snapshots to be pruned
+        for snapshot in snapshots_to_prune:
+            snapshot_path = datetime.strftime(snapshot, DATETIME_FORMAT)
+            log('Pruning snapshot {}...'.format(snapshot_path))
+            if not dry_run:
+                shutil.rmtree(snapshot_path,True)
 
     # Create a directory for the snapshot that we will be taking
     current_directory = os.path.join(snapshot_path,'current')
