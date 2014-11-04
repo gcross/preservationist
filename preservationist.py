@@ -141,8 +141,9 @@ dry_run,
         rsync_long_options +
         ['--include={}'.format(included_path) for included_path in include] +
         ['--exclude={}'.format(excluded_path) for excluded_path in exclude] +
-        [os.path.join(source_path,''),os.path.join(current_directory,''),
-         '--link-dest={}'.format(os.path.join(snapshot_path,datetime.strftime(snapshots[0],DATETIME_FORMAT)))]
+        [os.path.join(source_path,''),os.path.join(current_directory,'')] +
+        ([ '--link-dest={}'.format(os.path.join(snapshot_path,datetime.strftime(snapshots[0],DATETIME_FORMAT)))]
+         if snapshots else [])
     )
     log('Running {}...'.format(' '.join(run_rsync)))
     if not dry_run:
