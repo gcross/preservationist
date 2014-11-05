@@ -58,6 +58,8 @@ dry_run,
 ):
     if dry_run:
         log('This is just a dry run; no action will be taken.')
+
+    log('Preservationist started.')
  
     # First, check to see if another protectionist process is already active.
     i_am_active = os.path.join(snapshot_path,'i_am_active')
@@ -78,6 +80,7 @@ dry_run,
     def delete_i_am_active():
         if os.path.exists(i_am_active):
             os.remove(i_am_active)
+        log('Preservationist finished.')
     atexit.register(delete_i_am_active)
 
     # Go through the snapshots directory and find all of the snapshots; we
