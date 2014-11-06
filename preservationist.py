@@ -128,10 +128,10 @@ dry_run,
 
         # Delete the snapshots to be pruned
         for snapshot in snapshots_to_prune:
-            snapshot_path = datetime.strftime(snapshot, DATETIME_FORMAT)
-            log('Pruning snapshot {}...'.format(snapshot_path))
+            snapshot_label = datetime.strftime(snapshot, DATETIME_FORMAT)
+            log('Pruning snapshot {}...'.format(snapshot_label))
             if not dry_run:
-                shutil.rmtree(snapshot_path,True)
+                shutil.rmtree(os.path.join(snapshot_path,snapshot_label),True)
 
     # Create a directory for the snapshot that we will be taking
     current_directory = os.path.join(snapshot_path,'current')
