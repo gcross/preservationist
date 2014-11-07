@@ -78,8 +78,9 @@ dry_run,
 
     # Ensure that the sentinel file is deleted when we quit.
     def delete_i_am_active():
-        if os.path.exists(i_am_active):
-            os.remove(i_am_active)
+        if not dry_run:
+            if os.path.exists(i_am_active):
+                os.remove(i_am_active)
         log('Preservationist finished.')
     atexit.register(delete_i_am_active)
 
