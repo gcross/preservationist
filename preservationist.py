@@ -134,6 +134,12 @@ dry_run,
             if not dry_run:
                 shutil.rmtree(os.path.join(snapshot_path,snapshot_label),True)
 
+        # Find the most recent remaining snapshot.
+        most_recent_remaining_snapshot = max(frozenset(snapshots) - frozenset(snapshots_to_prune))
+    else:
+        log("No old snapshots found.")
+        most_recent_remaining_snapshot = None
+
     # Create a directory for the snapshot that we will be taking
     current_directory = os.path.join(snapshot_path,'current')
     if not dry_run:
@@ -146,8 +152,8 @@ dry_run,
         ['--include={}'.format(included_path) for included_path in include] +
         ['--exclude={}'.format(excluded_path) for excluded_path in exclude] +
         [os.path.join(source_path,''),os.path.join(current_directory,'')] +
-        ([ '--link-dest={}'.format(os.path.join(snapshot_path,datetime.strftime(snapshots[0],DATETIME_FORMAT)))]
-         if snapshots else [])
+        ([ '--link-dest={}'.format(os.path.join(snapshot_path,datetime.strftime(most_recent_remaining_snapshot,DATETIME_FORMAT)))]
+         if most_recent_remaining_snapshot else [])
     )
     log('Running {}...'.format(' '.join(run_rsync)))
     if not dry_run:
