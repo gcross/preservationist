@@ -33,6 +33,12 @@ def log(message,*args,**kwargs):
     print(datetime.strftime(datetime.now(),'[%Y-%m-%d @ %H:%M:%S] ') + message,*args,**kwargs)
     sys.stdout.flush()
 
+def labelToSnapshot(label):
+    return datetime.strptime(label, DATETIME_FORMAT)
+
+def snapshotToLabel(snapshot):
+    return datetime.strftime(snapshot, DATETIME_FORMAT)
+
 ################################################################################
 ##################################### RUN ######################################
 ################################################################################
@@ -100,7 +106,7 @@ dry_run,
     snapshots = []
     for potential_snapshot in os.listdir(snapshot_path):
         try:
-            snapshots.append(datetime.strptime(potential_snapshot, DATETIME_FORMAT))
+            snapshots.append(labelToSnapshot(potential_snapshot))
         except ValueError:
             pass
 
@@ -139,8 +145,8 @@ dry_run,
 
         # Mark all of the snapshots destined to be pruned
         for snapshot in snapshots_to_prune:
-            log('Marking snapshot {} for pruning.'.format(snapshot))
-            snapshot_label = datetime.strftime(snapshot, DATETIME_FORMAT)
+            log('Marking snapshot {} for pruning.'.format(snapshotToLabel(snapshot)))
+            snapshot_label = snapshotToLabel(snapshot)
             if not dry_run:
                 os.rename(os.path.join(snapshot_path,snapshot_label),
                           os.path.join(snapshot_path,snapshot_label+PRUNE_MARKER))
@@ -170,7 +176,7 @@ dry_run,
         ['--include={}'.format(included_path) for included_path in include] +
         ['--exclude={}'.format(excluded_path) for excluded_path in exclude] +
         [os.path.join(source_path,''),os.path.join(current_directory,'')] +
-        ([ '--link-dest={}'.format(os.path.join(snapshot_path,datetime.strftime(most_recent_remaining_snapshot,DATETIME_FORMAT)))]
+        ([ '--link-dest={}'.format(os.path.join(snapshot_path,snapshotToLabel(most_recent_remaining_snapshot)))]
          if most_recent_remaining_snapshot else [])
     )
     log('Running {}...'.format(' '.join(run_rsync)))
@@ -189,7 +195,7 @@ dry_run,
             return
 
     # Rename the new snapshot
-    snapshot_path = os.path.join(snapshot_path,datetime.strftime(datetime.now(),DATETIME_FORMAT))
+    snapshot_path = os.path.join(snapshot_path,snapshotToLabel(datetime.now()))
     log('Renaming {} to {}...'.format(current_directory,snapshot_path))
     if not dry_run:
         os.rename(current_directory,snapshot_path)
