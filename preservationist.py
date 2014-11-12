@@ -12,6 +12,7 @@
 import atexit
 from datetime import date, datetime, timedelta
 import shutil
+import signal
 import os
 import os.path
 import subprocess
@@ -84,6 +85,14 @@ dry_run,
                 os.remove(i_am_active)
         log('Preservationist finished.')
     atexit.register(delete_i_am_active)
+
+    # Ensure that the sentinel file is deleted when a signal is received
+    for signum in [signal.SIGABRT, signal.SIGSEGV, signal.SIGTERM]:
+        def handle_signal(signum,unused_stack_frame):
+            delete_i_am_active()
+            log("Terminated with signal {}".format(signum))
+            os._exit(-1)
+        signal.signal(signum, handle_signal)
 
     # Go through the snapshots directory and find all of the snapshots; we
     # interpret every directory whose date follows the time format as being a
