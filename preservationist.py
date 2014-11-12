@@ -22,6 +22,7 @@ import sys
 ################################################################################
 
 DATETIME_FORMAT = '%Y-%m-%d @ %H:%M'
+PRUNE_MARKER = '-to-be-pruned'
 
 ################################################################################
 ################################## FUNCTIONS ###################################
@@ -127,12 +128,20 @@ dry_run,
         while i < len(snapshots):
             selectToPrune(lambda x: x.date().month)
 
-        # Delete the snapshots to be pruned
+        # Mark all of the snapshots destined to be pruned
         for snapshot in snapshots_to_prune:
+            log('Marking snapshot {} for pruning.'.format(snapshot))
             snapshot_label = datetime.strftime(snapshot, DATETIME_FORMAT)
-            log('Pruning snapshot {}...'.format(snapshot_label))
             if not dry_run:
-                shutil.rmtree(os.path.join(snapshot_path,snapshot_label),True)
+                os.rename(os.path.join(snapshot_path,snapshot_label),
+                          os.path.join(snapshot_path,snapshot_label+PRUNE_MARKER))
+
+        # Delete the snapshots to be pruned
+        for potential_snapshot_to_be_pruned in os.listdir(snapshot_path):
+            if potential_snapshot_to_be_pruned.endswith(PRUNE_MARKER):
+                log('Pruning snapshot {}...'.format(potential_snapshot_to_be_pruned[:-len(PRUNE_MARKER)]))
+                if not dry_run:
+                    shutil.rmtree(os.path.join(snapshot_path,potential_snapshot_to_be_pruned),True)
 
         # Find the most recent remaining snapshot.
         most_recent_remaining_snapshot = max(frozenset(snapshots) - frozenset(snapshots_to_prune))
