@@ -48,7 +48,7 @@ def run(
 #################################### Paths #####################################
 
 source_path,
-snapshot_path,
+snapshot_directory,
 rsync_command,
 
 #################################### Rsync #####################################
@@ -70,7 +70,7 @@ dry_run,
     log('Preservationist started.')
  
     # First, check to see if another protectionist process is already active.
-    i_am_active = os.path.join(snapshot_path,'i_am_active')
+    i_am_active = os.path.join(snapshot_directory,'i_am_active')
     if not dry_run:
         if os.path.exists(i_am_active):
             log('Another preservationist process is already running, so I will abort.')
@@ -104,7 +104,7 @@ dry_run,
     # interpret every directory whose date follows the time format as being a
     # snapshot and ignore everything else.
     snapshots = []
-    for potential_snapshot in os.listdir(snapshot_path):
+    for potential_snapshot in os.listdir(snapshot_directory):
         try:
             snapshots.append(labelToSnapshot(potential_snapshot))
         except ValueError:
@@ -148,15 +148,15 @@ dry_run,
             log('Marking snapshot {} for pruning.'.format(snapshotToLabel(snapshot)))
             snapshot_label = snapshotToLabel(snapshot)
             if not dry_run:
-                os.rename(os.path.join(snapshot_path,snapshot_label),
-                          os.path.join(snapshot_path,snapshot_label+PRUNE_MARKER))
+                os.rename(os.path.join(snapshot_directory,snapshot_label),
+                          os.path.join(snapshot_directory,snapshot_label+PRUNE_MARKER))
 
         # Delete the snapshots to be pruned
-        for potential_snapshot_to_be_pruned in os.listdir(snapshot_path):
+        for potential_snapshot_to_be_pruned in os.listdir(snapshot_directory):
             if potential_snapshot_to_be_pruned.endswith(PRUNE_MARKER):
                 log('Pruning snapshot {}...'.format(potential_snapshot_to_be_pruned[:-len(PRUNE_MARKER)]))
                 if not dry_run:
-                    shutil.rmtree(os.path.join(snapshot_path,potential_snapshot_to_be_pruned),True)
+                    shutil.rmtree(os.path.join(snapshot_directory,potential_snapshot_to_be_pruned),True)
 
         # Find the most recent remaining snapshot.
         most_recent_remaining_snapshot = max(frozenset(snapshots) - frozenset(snapshots_to_prune))
@@ -165,7 +165,7 @@ dry_run,
         most_recent_remaining_snapshot = None
 
     # Create a directory for the snapshot that we will be taking
-    current_directory = os.path.join(snapshot_path,'current')
+    current_directory = os.path.join(snapshot_directory,'current')
     if not dry_run:
         os.makedirs(current_directory, exist_ok=True)
 
@@ -176,7 +176,7 @@ dry_run,
         ['--include={}'.format(included_path) for included_path in include] +
         ['--exclude={}'.format(excluded_path) for excluded_path in exclude] +
         [os.path.join(source_path,''),os.path.join(current_directory,'')] +
-        ([ '--link-dest={}'.format(os.path.join(snapshot_path,snapshotToLabel(most_recent_remaining_snapshot)))]
+        ([ '--link-dest={}'.format(os.path.join(snapshot_directory,snapshotToLabel(most_recent_remaining_snapshot)))]
          if most_recent_remaining_snapshot else [])
     )
     log('Running {}...'.format(' '.join(run_rsync)))
@@ -195,7 +195,7 @@ dry_run,
             return
 
     # Rename the new snapshot
-    snapshot_path = os.path.join(snapshot_path,snapshotToLabel(datetime.now()))
-    log('Renaming {} to {}...'.format(current_directory,snapshot_path))
+    new_snapshot_path = os.path.join(snapshot_directory,snapshotToLabel(datetime.now()))
+    log('Renaming {} to {}...'.format(current_directory,new_snapshot_path))
     if not dry_run:
-        os.rename(current_directory,snapshot_path)
+        os.rename(current_directory,new_snapshot_path)

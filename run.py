@@ -24,8 +24,8 @@ run(
 # The source path that you want to backup.
 source_path = '/',
 
-# The path where the backup snapshots should be stored.
-snapshot_path = '/backups/snapshots',
+# The directory where the backup snapshots should be stored.
+snapshot_directory = '/backups/snapshots',
 
 # The command to run rsync.
 rsync_command = 'rsync',
