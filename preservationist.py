@@ -199,3 +199,14 @@ dry_run,
     log('Renaming {} to {}...'.format(current_directory,new_snapshot_path))
     if not dry_run:
         os.rename(current_directory,new_snapshot_path)
+
+    # Updating the latest link
+    if hasattr(os,'symlink'):
+        latest_path = os.path.join(snapshot_directory,'latest')
+        if os.path.exists(latest_path):
+            log('Removing old latest link...')
+            if not dry_run:
+                os.remove(latest_path)
+        log('Softlinking {} to latest...'.format(new_snapshot_path))
+        if not dry_run:
+            os.symlink(new_snapshot_path,latest_path)
