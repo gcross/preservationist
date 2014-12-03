@@ -203,7 +203,7 @@ dry_run,
     # Updating the latest link
     if hasattr(os,'symlink'):
         latest_path = os.path.join(snapshot_directory,'latest')
-        if os.path.exists(latest_path):
+        if os.path.exists(latest_path) or os.path.islink(latest_path):
             log('Removing old latest link...')
             if not dry_run:
                 os.remove(latest_path)
