@@ -204,9 +204,9 @@ dry_run,
     if hasattr(os,'symlink'):
         latest_path = os.path.join(snapshot_directory,'latest')
         if os.path.exists(latest_path) or os.path.islink(latest_path):
-            log('Removing old latest link...')
+            log('Removing {}...'.format(latest_path))
             if not dry_run:
                 os.remove(latest_path)
-        log('Softlinking {} to latest...'.format(new_snapshot_path))
+        log('Softlinking {} to {}...'.format(new_snapshot_path,latest_path))
         if not dry_run:
             os.symlink(new_snapshot_path,latest_path)
